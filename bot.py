@@ -9,7 +9,7 @@ import requests
 app = Flask(__name__)
 
 # ================= НАСТРОЙКИ =================
-TOKEN = os.environ.get("VK_TOKEN)
+TOKEN = os.environ.get("VK_TOKEN")
 GROUP_ID = 238444172  # Твой числовой ID группы (без минуса)
 CONFIRM_STRING = "303bdfac"  # Пока пусто, вставим после запуска
 # =============================================
