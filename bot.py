@@ -7,19 +7,15 @@ import time
 import requests
 
 app = Flask(__name__)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# ================= НАСТРОЙКИ =================
-TOKEN = os.environ.get("VK_TOKEN", "vk1.a.LT0w7DMdcPPvQSiIb88C3YYf-LNSCqZphs5bih15ljMZowedcFn4jCc8Dv9Ng7XdocTNQR2yj9gxV7MmKwQVIaSzjndQm3GbIW4Ghm_aHL620QezLpdix50MQWw-hH7AbUp57PX1E-Wlt-wOi4zG0mxHnB4tqKdVZbYScHL6Oiwv3yrOhw7viHU9DDhM_fuScaNMLrUK9-IqcACpOnynKA")  # Укажи VK_TOKEN в переменных окружения (или оставь захардкоженным)
-GROUP_ID = 238444172  # Твой числовой ID группы (без минуса)
-CONFIRM_STRING = "303bdfac"  # Пока пусто, вставим после запуска
-# =============================================
+TOKEN = os.environ.get("VK_TOKEN")
+GROUP_ID = 238444172
+CONFIRM_STRING = "303bdfac"
 
 vk = vk_api.VkApi(token=TOKEN).get_api()
 
-
-# ================= КЛАВИАТУРЫ =================
 def create_main_keyboard():
-    """Создает нижнее меню бота"""
     keyboard = {
         "one_time": False,
         "buttons": [
@@ -39,7 +35,6 @@ def create_main_keyboard():
 
 
 def create_book_control_keyboard(book_id):
-    """Создает inline-кнопки под сообщением о книге"""
     keyboard = {
         "inline": True,
         "buttons": [
@@ -69,9 +64,8 @@ def create_reading_keyboard(book_id):
     return json.dumps(keyboard, ensure_ascii=False)
 
 
-# ================= БАЗА ДАННЫХ =================
 def get_db_connection():
-    conn = sqlite3.connect('library.db')
+    conn = sqlite3.connect(os.path.join(BASE_DIR, 'library.db'))
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -97,12 +91,10 @@ def init_db():
     conn.close()
 
 
-# ================= ЛОГИКА БОТА =================
 user_states = {}
 
 
 def send_msg(user_id, text, keyboard=None):
-    """Отправка сообщения. Возвращает message_id."""
     params = {
         "user_id": user_id,
         "message": text,
@@ -121,7 +113,6 @@ def send_msg(user_id, text, keyboard=None):
 
 
 def edit_msg(user_id, message_id, text, keyboard=None):
-    """Редактирует существующее сообщение"""
     params = {
         "peer_id": user_id,
         "message": text,
@@ -141,13 +132,11 @@ def handle_message(user_id, message):
     attachments = message.get('attachments', [])
     text_lower = text.strip().lower()
 
-    # Авто-регистрация
     conn = get_db_connection()
     conn.execute("INSERT OR IGNORE INTO users (vk_id) VALUES (?)", (user_id,))
     conn.commit()
     conn.close()
 
-    # Если пользователь на шаге загрузки файла
     if user_id in user_states and user_states[user_id].get("step") == "file":
         if attachments:
             process_file_upload(user_id, attachments)
@@ -272,12 +261,10 @@ def process_file_upload(user_id, attachments):
     state = user_states.get(user_id)
     if not state or state.get("step") != "file":
         return
-
     book_id = state["data"].get("book_id")
     if not book_id:
         del user_states[user_id]
         return
-
     for attachment in attachments:
         if attachment["type"] == "doc":
             doc = attachment["doc"]
@@ -290,7 +277,7 @@ def process_file_upload(user_id, attachments):
                 resp = requests.get(url, timeout=30)
                 resp.encoding = resp.apparent_encoding or 'utf-8'
 
-                file_path = f"books/{book_id}.txt"
+                file_path = os.path.join(BASE_DIR, 'books', f"{book_id}.txt")
                 with open(file_path, 'w', encoding='utf-8') as f:
                     f.write(resp.text)
 
@@ -307,7 +294,7 @@ def process_file_upload(user_id, attachments):
 
 
 def send_book_chunk(user_id, book_id, chunk_pos, msg_id=None):
-    file_path = f"books/{book_id}.txt"
+    file_path = os.path.join(BASE_DIR, 'books', f"{book_id}.txt")
     if not os.path.exists(file_path):
         send_msg(user_id, "⚠️ Текст книги отсутствует.")
         return False
@@ -359,10 +346,10 @@ def read_book(user_id, book_id):
 
     last_pos = row[0]
 
-    file_path = f"books/{book_id}.txt"
+    file_path = os.path.join(BASE_DIR, 'books', f"{book_id}.txt")
 
     if not os.path.exists(file_path):
-        send_msg(user_id, "⚠️ Текст книги отсутствует (файл books/{book_id}.txt не найден).")
+        send_msg(user_id, "⚠️ Текст книги отсутствует.")
         conn.close()
         return
 
@@ -502,9 +489,11 @@ def webhook():
     return 'ok'
 
 
+books_dir = os.path.join(BASE_DIR, 'books')
+if not os.path.exists(books_dir):
+    os.makedirs(books_dir)
+init_db()
+
 if __name__ == '__main__':
-    if not os.path.exists('books'):
-        os.makedirs('books')
-    init_db()
     print("🟢 Бот запущен!")
     app.run(host='0.0.0.0', port=5000)
