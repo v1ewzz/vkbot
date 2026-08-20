@@ -232,10 +232,7 @@ def show_user_library(user_id):
         return
 
     for book in books:
-        title = escape_vk_format(book['title'])
-        author = escape_vk_format(book['author'])
-        status = escape_vk_format(book['status'])
-        msg = f"📖 *{title}*\n✍️ Автор: {author}\n🏷 Статус: {status}\nID: {book['id']}"
+        msg = f"📖 {book['title']}\n✍️ Автор: {book['author']}\n🏷 Статус: {book['status']}\nID: {book['id']}"
         send_msg(user_id, msg, keyboard=create_book_control_keyboard(book['id']))
 
 
@@ -295,17 +292,6 @@ def process_book_adding(user_id, text):
                 send_msg(user_id, "❌ Год должен быть числом.")
     finally:
         conn.close()
-
-
-def escape_vk_format(text):
-    """Экранирует служебные символы разметки VK (* _ ~ [ ] | \\), чтобы они отображались буквально."""
-    return (text.replace('\\', '\\\\')
-                .replace('*', '\\*')
-                .replace('_', '\\_')
-                .replace('~', '\\~')
-                .replace('[', '\\[')
-                .replace(']', '\\]')
-                .replace('|', '\\|'))
 
 
 def download_book_text(url, max_size):
