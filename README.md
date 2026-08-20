@@ -60,8 +60,8 @@
 | Переменная | Описание |
 |---|---|
 | `VK_TOKEN` | Ключ доступа сообщества (Работа с API) |
-| `GROUP_ID` | ID группы (без минуса) |
 | `CONFIRM_STRING` | Строка подтверждения из Callback API |
+| `VK_SECRET` | Секретный ключ Callback API (опционально). Если задан — сервер проверяет подпись `X-Vk-Signature` каждого события |
 
 ### 3. Запуск
 
@@ -84,7 +84,7 @@ python bot.py
 
 ```bash
 docker build -t vkbot .
-docker run -p 5000:5000 -e VK_TOKEN=... -e GROUP_ID=... -e CONFIRM_STRING=... vkbot
+docker run -p 5000:5000 -e VK_TOKEN=... -e CONFIRM_STRING=... -e VK_SECRET=... vkbot
 ```
 
 Сервер запускается на порту 5000, при открытии в браузере вернёт статус «Бот работает!».
