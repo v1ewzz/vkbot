@@ -232,7 +232,10 @@ def show_user_library(user_id):
         return
 
     for book in books:
-        msg = f"📖 *{book['title']}*\n✍️ Автор: {book['author']}\n🏷 Статус: {book['status']}\nID: {book['id']}"
+        title = escape_vk_format(book['title'])
+        author = escape_vk_format(book['author'])
+        status = escape_vk_format(book['status'])
+        msg = f"📖 *{title}*\n✍️ Автор: {author}\n🏷 Статус: {status}\nID: {book['id']}"
         send_msg(user_id, msg, keyboard=create_book_control_keyboard(book['id']))
 
 
@@ -294,6 +297,17 @@ def process_book_adding(user_id, text):
         conn.close()
 
 
+def escape_vk_format(text):
+    """Экранирует служебные символы разметки VK (* _ ~ [ ] | \\), чтобы они отображались буквально."""
+    return (text.replace('\\', '\\\\')
+                .replace('*', '\\*')
+                .replace('_', '\\_')
+                .replace('~', '\\~')
+                .replace('[', '\\[')
+                .replace(']', '\\]')
+                .replace('|', '\\|'))
+
+
 def download_book_text(url, max_size):
     """Скачивает текст документа с fallback-подменой хоста.
 
@@ -301,6 +315,10 @@ def download_book_text(url, max_size):
     На PythonAnywhere (free) часть хостов блокируется whitelist-прокси.
     Путь у vk.ru/vk.com одинаковый, поэтому при неудаче пробуем подменить хост.
     """
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    }
     candidates = [url]
     for host_from, host_to in (("vk.ru", "vk.com"), ("vk.com", "vk.ru")):
         if host_from in url:
@@ -310,12 +328,15 @@ def download_book_text(url, max_size):
     last_error = None
     for candidate in candidates:
         try:
-            resp = requests.get(candidate, timeout=30)
+            resp = requests.get(candidate, timeout=30, headers=headers)
             try:
                 if int(resp.headers.get('Content-Length', 0) or 0) > max_size:
                     raise ValueError("Файл слишком большой")
                 resp.encoding = resp.apparent_encoding or 'utf-8'
-                return resp.text
+                text = resp.text
+                if not text.strip():
+                    raise ValueError("Файл пуст или недоступен")
+                return text
             finally:
                 resp.close()
         except Exception as e:
