@@ -294,6 +294,37 @@ def process_book_adding(user_id, text):
         conn.close()
 
 
+def download_book_text(url, max_size):
+    """Скачивает текст документа с fallback-подменой хоста.
+
+    VK отдаёт doc-ссылки с разных хостов (vk.com, vk.ru, userapi.com, ...).
+    На PythonAnywhere (free) часть хостов блокируется whitelist-прокси.
+    Путь у vk.ru/vk.com одинаковый, поэтому при неудаче пробуем подменить хост.
+    """
+    candidates = [url]
+    for host_from, host_to in (("vk.ru", "vk.com"), ("vk.com", "vk.ru")):
+        if host_from in url:
+            candidates.append(url.replace(host_from, host_to, 1))
+            break
+
+    last_error = None
+    for candidate in candidates:
+        try:
+            resp = requests.get(candidate, timeout=30)
+            try:
+                if int(resp.headers.get('Content-Length', 0) or 0) > max_size:
+                    raise ValueError("Файл слишком большой")
+                resp.encoding = resp.apparent_encoding or 'utf-8'
+                return resp.text
+            finally:
+                resp.close()
+        except Exception as e:
+            last_error = e
+    if last_error:
+        raise last_error
+    return None
+
+
 def process_file_upload(user_id, attachments):
     state = get_user_state(user_id)
     if not state or state.get("step") != "file":
@@ -312,15 +343,7 @@ def process_file_upload(user_id, attachments):
 
         url = doc["url"]
         try:
-            resp = requests.get(url, timeout=30)
-            try:
-                if int(resp.headers.get('Content-Length', 0) or 0) > MAX_BOOK_FILE_SIZE:
-                    send_msg(user_id, "❌ Файл слишком большой (лимит 50 МБ).")
-                    return
-                resp.encoding = resp.apparent_encoding or 'utf-8'
-                text = resp.text
-            finally:
-                resp.close()
+            text = download_book_text(url, MAX_BOOK_FILE_SIZE)
 
             file_path = os.path.join(BASE_DIR, 'books', f"{book_id}.txt")
             with open(file_path, 'w', encoding='utf-8') as f:
