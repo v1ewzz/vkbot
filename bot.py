@@ -122,7 +122,7 @@ def del_user_state(user_id):
         user_states.pop(user_id, None)
 
 
-def send_msg(user_id, text, keyboard=None):
+def send_msg(user_id, text, keyboard=None, format_items=None):
     params = {
         "user_id": user_id,
         "message": text,
@@ -130,6 +130,11 @@ def send_msg(user_id, text, keyboard=None):
     }
     if keyboard:
         params["keyboard"] = keyboard
+    if format_items:
+        params["format_data"] = json.dumps({
+            "version": 1,
+            "items": format_items
+        })
 
     try:
         resp = vk.messages.send(**params)
@@ -232,8 +237,11 @@ def show_user_library(user_id):
         return
 
     for book in books:
-        msg = f"📖 {book['title']}\n✍️ Автор: {book['author']}\n🏷 Статус: {book['status']}\nID: {book['id']}"
-        send_msg(user_id, msg, keyboard=create_book_control_keyboard(book['id']))
+        prefix = "📖 "
+        title = str(book['title'])
+        msg = f"{prefix}{title}\n✍️ Автор: {book['author']}\n🏷 Статус: {book['status']}\nID: {book['id']}"
+        items = [{"type": "bold", "offset": len(prefix), "length": len(title)}]
+        send_msg(user_id, msg, keyboard=create_book_control_keyboard(book['id']), format_items=items)
 
 
 def process_book_adding(user_id, text):
